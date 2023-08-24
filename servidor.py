@@ -2,6 +2,7 @@ import socket
 import threading
 import tkinter as tk
 from tkinter import messagebox, scrolledtext
+from datetime import datetime
 
 # Constantes
 HOST = '127.0.0.1'
@@ -17,6 +18,15 @@ servidor = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 servidor.bind((HOST, PORT))
 servidor.listen()
 
+#Creación de función bitacora
+def escribir_en_bitacora(mensaje):
+    with open("bitacora_servidor.log", "a") as f:
+        f.write(mensaje + "\n")
+
+def formato_registro(nombre_remitente, nombre_destinatario, mensaje):
+    fecha_hora = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    return f"[{fecha_hora}] De: {nombre_remitente} - Para: {nombre_destinatario} - Mensaje: {mensaje}"
+
 def manejar_cliente(cliente):
     nombre = nombres_clientes[cliente]
     
@@ -30,13 +40,23 @@ def manejar_cliente(cliente):
             for c in clientes:
                 if c != cliente:
                     c.send(mensaje_a_enviar.encode())
+                    # Escribir el mensaje en la bitácora con el formato requerido
+                    registro = formato_registro(nombre, nombres_clientes[c], mensaje)
+                    escribir_en_bitacora(registro)
+                else:
+                    registro = formato_registro(nombre, "ninguno", mensaje)
+                    escribir_en_bitacora(registro)
         
         except:
             # Eliminar cliente si hay algún problema
             clientes.remove(cliente)
             del nombres_clientes[cliente]
+            # Enviar a todos los clientes que alguien se ha conectado
+            for c in clientes:
+                c.send(f"[SERVER] {nombre} se ha desconectado del chat".encode())
             cliente.close()
-            agregar_al_historial(f"{nombre} se ha desconectado.")
+            fecha_hora = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            agregar_al_historial(f"[{fecha_hora}] {nombre} se ha desconectado.")
             actualizar_interfaz()
             break
 
@@ -55,7 +75,8 @@ def manejar_servidor():
             c.send(f"[SERVER] {nombre_cliente} se ha conectado al chat".encode())
 
         clientes.append(cliente)
-        agregar_al_historial(f"{nombre_cliente} se ha conectado desde {direccion}.")
+        fecha_hora = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        agregar_al_historial(f"[{fecha_hora}] {nombre_cliente} se ha conectado desde {direccion}.")
         actualizar_interfaz()
 
         # Iniciar un nuevo hilo para manejar al cliente
@@ -79,10 +100,15 @@ def agregar_al_historial(mensaje):
     historial.yview(tk.END)
     historial.config(state=tk.DISABLED)  # Deshabilita la edición después de insertar
 
+    # Escribir el mensaje en la bitácora
+    escribir_en_bitacora(mensaje)
+    
 def on_closing():
     if len(clientes) > 0:
         messagebox.showwarning("Advertencia", "No se puede cerrar el servidor con clientes conectados.")
     else:
+        fecha_hora = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        escribir_en_bitacora(f"[{fecha_hora}] Se ha cerrado el servidor.")
         cerrar_servidor()
 
 # Iniciar el hilo del servidor
@@ -102,7 +128,8 @@ historial = scrolledtext.ScrolledText(ventana, width=50, height=10, state=tk.DIS
 historial.pack(pady=10)
 
 # Agregar mensaje inicial sobre el servidor ejecutándose
-agregar_al_historial(f"Servidor ejecutándose en {HOST}:{PORT}")
+fecha_hora = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+agregar_al_historial(f"[{fecha_hora}] Servidor ejecutándose en {HOST}:{PORT}")
 
 boton_cerrar = tk.Button(ventana, text="Cerrar Servidor", command=on_closing, state=tk.DISABLED)
 boton_cerrar.pack(pady=10)
