@@ -6,11 +6,12 @@ from datetime import datetime
 
 # Constantes
 HOST = '127.0.0.1'
-PORT = 12345
+PORT = 9191
 BUFFER_SIZE = 1024
 
 # Lista para mantener a todos los clientes conectados
 clientes = []
+nombres_clientes = {}  # Diccionario para almacenar los nombres de los clientes con su socket como clave
 nombres_clientes = {}
 
 # Crear socket del servidor
@@ -67,6 +68,12 @@ def manejar_servidor():
         
         # Recibir nombre del cliente
         nombre_cliente = cliente.recv(BUFFER_SIZE).decode()
+        # Verificar si el nombre del cliente ya está en uso
+        while nombre_cliente in nombres_clientes.values():
+            cliente.send('[SERVER] Este nombre ya está en uso. Por favor, elige otro.'.encode())
+            nombre_cliente = cliente.recv(BUFFER_SIZE).decode()
+        # Una vez que tengamos un nombre único, lo agregamos al diccionario
+        nombres_clientes[cliente] = nombre_cliente
         nombres_clientes[cliente] = nombre_cliente
         cliente.send(f"[SERVER] Bienvenido {nombre_cliente} al chat".encode())
 

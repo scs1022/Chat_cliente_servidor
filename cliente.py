@@ -4,7 +4,7 @@ import tkinter as tk
 from tkinter import simpledialog, scrolledtext
 
 HOST = '127.0.0.1'
-PORT = 12345
+PORT = 9191
 BUFFER_SIZE = 1024
 
 # Crear ventana principal
@@ -51,6 +51,11 @@ client.connect((HOST, PORT))
 name = simpledialog.askstring("Nombre", "Por favor ingresa tu nombre:", parent=root)
 client.send(name.encode())
 welcome_msg = client.recv(BUFFER_SIZE).decode()
+# Manejar la respuesta del servidor si el nombre ya está en uso
+while welcome_msg.startswith('[SERVER] Este nombre ya está en uso.'):
+    name = simpledialog.askstring('Nombre en uso', 'El nombre ya está en uso. Por favor, elige otro.', parent=root)
+    client.send(name.encode())
+    welcome_msg = client.recv(BUFFER_SIZE).decode()
 insert_message(welcome_msg, "left")
 
 # Iniciar el hilo para recibir mensajes
