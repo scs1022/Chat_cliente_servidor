@@ -1,6 +1,8 @@
 import socket
 import threading
 import tkinter as tk
+from tkinter import Button
+import os
 from tkinter import simpledialog, scrolledtext
 
 HOST = '127.0.0.1'
@@ -40,6 +42,38 @@ def receive_messages():
     while True:
         try:
             msg = client.recv(BUFFER_SIZE).decode()
+            # Handling file reception
+            if msg.startswith('ARCHIVO:'):
+                # Extract the file name and file size
+                file_info = msg.split(':')[1:3]
+                file_name = file_info[0]
+                file_size = int(file_info[1])
+
+                # Receive the file content and save it
+                with open(file_name, 'wb') as f:
+                    bytes_received = 0
+                    while bytes_received < file_size:
+                        bytes_to_receive = min(BUFFER_SIZE, file_size - bytes_received)
+                        file_data = client.recv(bytes_to_receive)
+                        f.write(file_data)
+                        bytes_received += len(file_data)
+
+                # Insert a message in the chat indicating the file has been received
+                insert_message(f'Archivo {file_name} recibido y guardado.', 'left')
+                
+                # # Preparing to receive the file
+                # chunks = []
+                # bytes_received = 0
+                # while bytes_received < file_size:
+                #     chunk = client.recv(min(BUFFER_SIZE, file_size - bytes_received))
+                #     chunks.append(chunk)
+                #     bytes_received += len(chunk)
+                # file_data = b''.join(chunks)
+                # # Saving the received file
+                # with open(f'recepcion_{file_name}', 'wb') as file:
+                #     file.write(file_data)
+                # print(f'[CLIENTE] Archivo {file_name} recibido.')
+                
             if not msg.startswith("Yo:"):  # No mostrar mensajes propios recibidos del servidor
                 insert_message(msg, "left")
         except:
@@ -64,5 +98,25 @@ threading.Thread(target=receive_messages, daemon=True).start()
 entry_msg.bind("<Return>", send_message)
 btn_send = tk.Button(root, text="Enviar", command=send_message)
 btn_send.pack()
+
+from tkinter.filedialog import askopenfilename
+
+def send_file():
+    file_path = askopenfilename()  # Open file dialog for user to select a file
+    if file_path:
+        with open(file_path, 'rb') as file:
+            file_data = file.read()  # Read the file data
+            file_name = os.path.basename(file_path)  # Get the file name
+            file_size = os.path.getsize(file_path)  # Get the file size
+            # Sending initial message with file details
+            client.send(f'ARCHIVO:{file_name}:{file_size}'.encode())
+            # Sending file data
+            client.sendall(file_data)
+            print(f'[CLIENTE] Archivo {file_name} enviado.')
+        insert_message(f"Yo: {file_name}:{file_size}Bytes enviado.", "right")
+
+# Add a button to the GUI for sending files
+file_button = Button(root, text='Enviar Archivo', command=send_file)
+file_button.pack(pady=20)
 
 root.mainloop()

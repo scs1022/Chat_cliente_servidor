@@ -36,17 +36,50 @@ def manejar_cliente(cliente):
             # Recibir mensaje del cliente
             mensaje = cliente.recv(BUFFER_SIZE).decode()
             
-            # Enviar el mensaje a todos los clientes excepto al que envió el mensaje
-            mensaje_a_enviar = f"{nombre}: {mensaje}"
-            for c in clientes:
-                if c != cliente:
-                    c.send(mensaje_a_enviar.encode())
-                    # Escribir el mensaje en la bitácora con el formato requerido
-                    registro = formato_registro(nombre, nombres_clientes[c], mensaje)
-                    escribir_en_bitacora(registro)
-                else:
-                    registro = formato_registro(nombre, "ninguno", mensaje)
-                    escribir_en_bitacora(registro)
+            # Handling file reception
+            if mensaje.startswith('ARCHIVO:'):
+                # Extracting file details from the message
+                _, file_name, file_size_str = mensaje.split(':')
+                file_size = int(file_size_str)
+                # Preparing to receive the file
+                chunks = []
+                bytes_received = 0
+                while bytes_received < file_size:
+                    chunk = cliente.recv(min(BUFFER_SIZE, file_size - bytes_received))
+                    chunks.append(chunk)
+                    bytes_received += len(chunk)
+                file_data = b''.join(chunks)
+                # Saving the received file
+                with open(f'recepcion_{file_name}', 'wb') as file:
+                    file.write(file_data)
+                print(f'[SERVER] Archivo {file_name} recibido.')
+                
+                # Enviar el mensaje a todos los clientes excepto al que envió el mensaje
+                #mensaje_a_enviar = f"{nombre} ha enviado {mensaje}Bytes."
+                for c in clientes:
+                    if c != cliente:
+                        #c.send(mensaje_a_enviar.encode())
+                        c.send(f'ARCHIVO:{file_name}:{file_size}'.encode())
+                        c.sendall(file_data)
+                        print(f'[SERVER] Archivo {file_name} enviado.')
+                        # Escribir el mensaje en la bitácora con el formato requerido
+                        registro = formato_registro(nombre, nombres_clientes[c], mensaje)
+                        escribir_en_bitacora(registro)
+                    else:
+                        registro = formato_registro(nombre, "ninguno", mensaje)
+                        escribir_en_bitacora(registro)
+            else:
+                # Enviar el mensaje a todos los clientes excepto al que envió el mensaje
+                mensaje_a_enviar = f"{nombre}: {mensaje}"
+                for c in clientes:
+                    if c != cliente:
+                        c.send(mensaje_a_enviar.encode())
+                        # Escribir el mensaje en la bitácora con el formato requerido
+                        registro = formato_registro(nombre, nombres_clientes[c], mensaje)
+                        escribir_en_bitacora(registro)
+                    else:
+                        registro = formato_registro(nombre, "ninguno", mensaje)
+                        escribir_en_bitacora(registro)
         
         except:
             # Eliminar cliente si hay algún problema
